@@ -53,6 +53,7 @@ type Service struct {
 	detected  map[string]uint64
 	nvme      map[string]*nvmeState
 	loopOwner map[string]uint32
+	ata       map[string]*ataState
 }
 
 // New connects to the system bus and publishes the manager.
@@ -61,7 +62,7 @@ func New(src model.Sources) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{src: src, conn: conn, objects: map[dbus.ObjectPath]*object{}, detected: map[string]uint64{}, nvme: map[string]*nvmeState{}, loopOwner: map[string]uint32{}}
+	s := &Service{src: src, conn: conn, objects: map[dbus.ObjectPath]*object{}, detected: map[string]uint64{}, nvme: map[string]*nvmeState{}, loopOwner: map[string]uint32{}, ata: map[string]*ataState{}}
 	if err := conn.Export(&objectManager{s}, rootPath, ifObjManager); err != nil {
 		conn.Close()
 		return nil, err
@@ -245,10 +246,16 @@ func (s *Service) Refresh() {
 		path := dbus.ObjectPath(drivesPrefix + d.Object)
 		want[path] = driveIfaces(d)
 		methods[path] = map[string]interface{}{ifDrive: &driveObject{s, d.Object}}
+		if blk := m.Blocks[d.Block()]; blk != nil && blk.Prop("ID_ATA") == "1" {
+			st := s.ata[d.Block()]
+			stale := st == nil || uint64(time.Now().Unix())-st.checked > 600
+			want[path][ifDriveAta] = s.ataIfaces(d.Block(), stale)
+			methods[path][ifDriveAta] = &ataObject{s, d.Block()}
+		}
 		if m := namespaceName.FindStringSubmatch(d.Block()); m != nil {
 			ctrl := m[1]
 			st := s.nvme[ctrl]
-			stale := st == nil || uint64(time.Now().Unix())-st.updated > 600
+			stale := st == nil || uint64(time.Now().Unix())-st.checked > 600
 			want[path][ifNVMeController] = s.controllerIfaces(ctrl, stale)
 			methods[path][ifNVMeController] = &controllerObject{s, ctrl}
 		}

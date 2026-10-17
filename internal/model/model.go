@@ -119,6 +119,9 @@ type Encrypted struct {
 	CleartextDevice    string
 }
 
+// Prop returns a property of the device from the udev database.
+func (b *Block) Prop(key string) string { return b.props[key] }
+
 // MapperName is the device-mapper name of the cleartext device, empty when
 // the block is not an unlocked cleartext device.
 func (b *Block) MapperName() string { return b.props["DM_NAME"] }

@@ -51,8 +51,9 @@ LUKS volumes can be unlocked, locked, given a new passphrase and created with
 Loop devices can be set up from a file descriptor, deleted and set to clear
 themselves, and the fstab items of a device added, removed and updated.
 
-Not implemented yet: ATA SMART. Its methods are not published, so clients see
-them as unavailable rather than failing.
+ATA drives publish `Drive.Ata`: SMART health, attributes and self-tests read
+with ATA PASS-THROUGH over SG_IO, and the power management, cache and
+security features from IDENTIFY DEVICE.
 
 ## Usage
 

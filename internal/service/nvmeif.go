@@ -27,6 +27,7 @@ type nvmeState struct {
 	selftest nvme.SelfTest
 	updated  uint64
 	ok       bool
+	checked  uint64
 }
 
 func (s *Service) nvmeController(ctrl string, refresh bool) *nvmeState {
@@ -38,6 +39,7 @@ func (s *Service) nvmeController(ctrl string, refresh bool) *nvmeState {
 	if !refresh && st.ok {
 		return st
 	}
+	st.checked = uint64(time.Now().Unix())
 	d, err := nvme.Open("/dev/" + ctrl)
 	if err != nil {
 		return st
