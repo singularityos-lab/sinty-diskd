@@ -45,13 +45,14 @@ type object struct {
 
 // Service is the running daemon.
 type Service struct {
-	src      model.Sources
-	conn     *dbus.Conn
-	mu       sync.Mutex
-	model    *model.Model
-	objects  map[dbus.ObjectPath]*object
-	detected map[string]uint64
-	nvme     map[string]*nvmeState
+	src       model.Sources
+	conn      *dbus.Conn
+	mu        sync.Mutex
+	model     *model.Model
+	objects   map[dbus.ObjectPath]*object
+	detected  map[string]uint64
+	nvme      map[string]*nvmeState
+	loopOwner map[string]uint32
 }
 
 // New connects to the system bus and publishes the manager.
@@ -60,7 +61,7 @@ func New(src model.Sources) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{src: src, conn: conn, objects: map[dbus.ObjectPath]*object{}, detected: map[string]uint64{}, nvme: map[string]*nvmeState{}}
+	s := &Service{src: src, conn: conn, objects: map[dbus.ObjectPath]*object{}, detected: map[string]uint64{}, nvme: map[string]*nvmeState{}, loopOwner: map[string]uint32{}}
 	if err := conn.Export(&objectManager{s}, rootPath, ifObjManager); err != nil {
 		conn.Close()
 		return nil, err
@@ -254,6 +255,9 @@ func (s *Service) Refresh() {
 	}
 	for _, b := range m.Blocks {
 		path := dbus.ObjectPath(model.BlockPath(b.Name))
+		if b.Loop != nil {
+			b.Loop.SetupByUID = s.loopOwner[b.Name]
+		}
 		want[path] = blockIfaces(b)
 		mm := map[string]interface{}{ifBlock: &blockObject{s, b.Name}}
 		if b.Filesystem != nil {
@@ -270,6 +274,9 @@ func (s *Service) Refresh() {
 		}
 		if b.Encrypted != nil {
 			mm[ifEncrypted] = &encryptedObject{s, b.Name}
+		}
+		if b.Loop != nil {
+			mm[ifLoop] = &loopObject{s, b.Name}
 		}
 		if namespaceName.MatchString(b.Name) {
 			if o := s.objects[path]; o != nil && o.ifaces[ifNVMeNamespace] != nil {

@@ -48,9 +48,11 @@ health and self-test state, with `SmartUpdate`, `SmartGetAttributes`,
 LUKS volumes can be unlocked, locked, given a new passphrase and created with
 `Block.Format`; passphrases reach cryptsetup only on pipes.
 
-Not implemented yet: ATA SMART, loop device
-setup and editing fstab. Their methods are not published, so clients see them
-as unavailable rather than failing.
+Loop devices can be set up from a file descriptor, deleted and set to clear
+themselves, and the fstab items of a device added, removed and updated.
+
+Not implemented yet: ATA SMART. Its methods are not published, so clients see
+them as unavailable rather than failing.
 
 ## Usage
 
