@@ -147,7 +147,7 @@ func (c *controllerObject) SmartGetAttributes(options map[string]dbus.Variant) (
 		"total_data_written": dbus.MakeVariant(sm.DataUnitsWritten * 512000), "ctrl_busy_time": dbus.MakeVariant(sm.ControllerBusyTime),
 		"power_cycles": dbus.MakeVariant(sm.PowerCycles), "unsafe_shutdowns": dbus.MakeVariant(sm.UnsafeShutdowns),
 		"media_errors": dbus.MakeVariant(sm.MediaErrors), "num_err_log_entries": dbus.MakeVariant(sm.NumErrLogEntries),
-		"temp_sensors": dbus.MakeVariant(sensors), "wctemp": dbus.MakeVariant(uint16(0)), "cctemp": dbus.MakeVariant(uint16(0)),
+		"temp_sensors": dbus.MakeVariant(sensors), "wctemp": dbus.MakeVariant(st.ctrl.WarningTemp), "cctemp": dbus.MakeVariant(st.ctrl.CriticalTemp),
 		"warning_temp_time": dbus.MakeVariant(sm.WarningTempTime), "critical_temp_time": dbus.MakeVariant(sm.CriticalTempTime),
 	}, nil
 }

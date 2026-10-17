@@ -95,6 +95,8 @@ type Controller struct {
 	Revision            string
 	FGUID               string
 	UnallocatedCapacity uint64
+	WarningTemp         uint16
+	CriticalTemp        uint16
 }
 
 // ParseController decodes an Identify Controller data structure.
@@ -111,6 +113,8 @@ func ParseController(b []byte) Controller {
 	if fguid := b[112:128]; !allZero(fguid) {
 		c.FGUID = fmt.Sprintf("%x", fguid)
 	}
+	c.WarningTemp = binary.LittleEndian.Uint16(b[266:])
+	c.CriticalTemp = binary.LittleEndian.Uint16(b[268:])
 	unvm := new(big.Int).SetBytes(reverse(b[296:312]))
 	if unvm.IsUint64() {
 		c.UnallocatedCapacity = unvm.Uint64()

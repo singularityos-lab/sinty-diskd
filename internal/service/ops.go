@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -261,8 +262,21 @@ func takeOwnership(dev, fstype string, uid uint32) error {
 		return err
 	}
 	defer syscall.Unmount(dir, 0)
-	gid := uid
-	return os.Chown(dir, int(uid), int(gid))
+	return os.Chown(dir, int(uid), int(primaryGID(uid)))
+}
+
+// primaryGID returns the primary group of uid, or uid itself when the
+// account cannot be looked up.
+func primaryGID(uid uint32) uint32 {
+	u, err := user.LookupId(strconv.Itoa(int(uid)))
+	if err != nil {
+		return uid
+	}
+	gid, err := strconv.Atoi(u.Gid)
+	if err != nil {
+		return uid
+	}
+	return uint32(gid)
 }
 
 func (b *blockObject) partition(sender dbus.Sender) (*model.Block, *model.Block, *dbus.Error) {
@@ -634,7 +648,7 @@ func (f *filesystemObject) TakeOwnership(sender dbus.Sender, options map[string]
 		return derr
 	}
 	if len(points) > 0 {
-		if err := os.Chown(points[0], int(uid), int(uid)); err != nil {
+		if err := os.Chown(points[0], int(uid), int(primaryGID(uid))); err != nil {
 			return failed(err)
 		}
 		return nil

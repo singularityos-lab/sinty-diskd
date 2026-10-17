@@ -22,7 +22,9 @@ func TestParseController(t *testing.T) {
 	}
 	binary.LittleEndian.PutUint32(b[80:], 2<<16|0<<8|1)
 	b[296] = 0x10
-	if c := ParseController(b); c.Revision != "2.0.1" || c.UnallocatedCapacity != 16 {
+	binary.LittleEndian.PutUint16(b[266:], 343)
+	binary.LittleEndian.PutUint16(b[268:], 353)
+	if c := ParseController(b); c.Revision != "2.0.1" || c.UnallocatedCapacity != 16 || c.WarningTemp != 343 || c.CriticalTemp != 353 {
 		t.Errorf("controller %+v", c)
 	}
 }
