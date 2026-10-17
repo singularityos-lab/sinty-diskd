@@ -1,0 +1,6 @@
+/sinty-diskd
+*.test
+*.out
+
+.DS_Store
+*.swp
