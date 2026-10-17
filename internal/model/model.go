@@ -147,6 +147,9 @@ type Drive struct {
 	nvme  bool
 }
 
+// Block is the name of the block device of the drive.
+func (d *Drive) Block() string { return d.block }
+
 // Model is everything published at one moment.
 type Model struct {
 	Blocks map[string]*Block

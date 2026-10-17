@@ -41,7 +41,11 @@ find the same object manager, objects and properties on the system bus.
   and fsck of each filesystem), called directly without a shell. Users may
   act on removable media; system devices are reserved to root.
 
-Not implemented yet: the SMART and NVMe interfaces, encryption, loop device
+The NVMe controller and namespace interfaces publish the identity, SMART
+health and self-test state, with `SmartUpdate`, `SmartGetAttributes`,
+`SmartSelftestStart` and `SmartSelftestAbort`.
+
+Not implemented yet: ATA SMART, encryption, loop device
 setup and editing fstab. Their methods are not published, so clients see them
 as unavailable rather than failing.
 

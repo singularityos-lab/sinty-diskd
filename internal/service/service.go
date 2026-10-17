@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
@@ -50,6 +51,7 @@ type Service struct {
 	model    *model.Model
 	objects  map[dbus.ObjectPath]*object
 	detected map[string]uint64
+	nvme     map[string]*nvmeState
 }
 
 // New connects to the system bus and publishes the manager.
@@ -58,7 +60,7 @@ func New(src model.Sources) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{src: src, conn: conn, objects: map[dbus.ObjectPath]*object{}, detected: map[string]uint64{}}
+	s := &Service{src: src, conn: conn, objects: map[dbus.ObjectPath]*object{}, detected: map[string]uint64{}, nvme: map[string]*nvmeState{}}
 	if err := conn.Export(&objectManager{s}, rootPath, ifObjManager); err != nil {
 		conn.Close()
 		return nil, err
@@ -93,7 +95,7 @@ func (s *Service) exportManager() error {
 		"SupportedFilesystems":     supportedFilesystems(),
 		"SupportedEncryptionTypes": []string{"luks1", "luks2"},
 		"DefaultEncryptionType":    "luks2",
-	}}
+	}, ifManagerNVMe: managerNVMe()}
 	return s.publish(managerPath, ifs, map[string]interface{}{ifManager: m})
 }
 
@@ -238,6 +240,13 @@ func (s *Service) Refresh() {
 		path := dbus.ObjectPath(drivesPrefix + d.Object)
 		want[path] = driveIfaces(d)
 		methods[path] = map[string]interface{}{ifDrive: &driveObject{s, d.Object}}
+		if m := namespaceName.FindStringSubmatch(d.Block()); m != nil {
+			ctrl := m[1]
+			st := s.nvme[ctrl]
+			stale := st == nil || uint64(time.Now().Unix())-st.updated > 600
+			want[path][ifNVMeController] = s.controllerIfaces(ctrl, stale)
+			methods[path][ifNVMeController] = &controllerObject{s, ctrl}
+		}
 	}
 	for _, b := range m.Blocks {
 		path := dbus.ObjectPath(model.BlockPath(b.Name))
@@ -254,6 +263,13 @@ func (s *Service) Refresh() {
 		}
 		if b.Swapspace != nil {
 			mm[ifSwapspace] = &swapObject{s, b.Name}
+		}
+		if namespaceName.MatchString(b.Name) {
+			if o := s.objects[path]; o != nil && o.ifaces[ifNVMeNamespace] != nil {
+				want[path][ifNVMeNamespace] = o.ifaces[ifNVMeNamespace]
+			} else {
+				want[path][ifNVMeNamespace] = s.namespaceIfaces(b)
+			}
 		}
 		methods[path] = mm
 	}
