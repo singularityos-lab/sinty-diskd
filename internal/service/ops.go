@@ -175,9 +175,6 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 		return derr
 	}
 	dev := "/dev/" + b.name
-	if _, ok := options["encrypt.passphrase"]; ok {
-		return dbus.NewError("org.freedesktop.UDisks2.Error.NotSupported", []interface{}{"encrypted formatting is not supported"})
-	}
 	if err := run("wipefs", "-a", "-q", dev); err != nil {
 		return failed(err)
 	}
@@ -193,7 +190,17 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 			return failed(err)
 		}
 	default:
-		tool, args, err := mkfsArgs(fstype, optString(options, "label"), dev)
+		target := dev
+		if v, ok := options["encrypt.passphrase"]; ok {
+			pass, _ := v.Value().(string)
+			clear, name, err := formatEncrypted(dev, b.name, pass)
+			if err != nil {
+				return failed(err)
+			}
+			defer cryptsetup(nil, "close", name)
+			target = clear
+		}
+		tool, args, err := mkfsArgs(fstype, optString(options, "label"), target)
 		if err != nil {
 			return dbus.NewError("org.freedesktop.UDisks2.Error.NotSupported", []interface{}{err.Error()})
 		}
@@ -210,7 +217,7 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 			}
 		}
 		if optBool(options, "take-ownership") && uid != 0 {
-			if err := takeOwnership(dev, fstype, uid); err != nil {
+			if err := takeOwnership(target, fstype, uid); err != nil {
 				return failed(err)
 			}
 		}

@@ -45,7 +45,10 @@ The NVMe controller and namespace interfaces publish the identity, SMART
 health and self-test state, with `SmartUpdate`, `SmartGetAttributes`,
 `SmartSelftestStart` and `SmartSelftestAbort`.
 
-Not implemented yet: ATA SMART, encryption, loop device
+LUKS volumes can be unlocked, locked, given a new passphrase and created with
+`Block.Format`; passphrases reach cryptsetup only on pipes.
+
+Not implemented yet: ATA SMART, loop device
 setup and editing fstab. Their methods are not published, so clients see them
 as unavailable rather than failing.
 

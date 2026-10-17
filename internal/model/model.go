@@ -74,6 +74,7 @@ type Block struct {
 	Filesystem     *Filesystem
 	Swapspace      *Swapspace
 	Loop           *Loop
+	Encrypted      *Encrypted
 
 	major, minor int
 	disk         string
@@ -110,6 +111,17 @@ type Filesystem struct {
 type Swapspace struct {
 	Active bool
 }
+
+// Encrypted holds the UDisks2 Encrypted properties.
+type Encrypted struct {
+	HintEncryptionType string
+	MetadataSize       uint64
+	CleartextDevice    string
+}
+
+// MapperName is the device-mapper name of the cleartext device, empty when
+// the block is not an unlocked cleartext device.
+func (b *Block) MapperName() string { return b.props["DM_NAME"] }
 
 // Loop holds the UDisks2 Loop properties.
 type Loop struct {
@@ -332,6 +344,21 @@ func Scan(src Sources, detected map[string]uint64) *Model {
 		case b.IDUsage == "other" && b.IDType == "swap":
 			b.Swapspace = &Swapspace{Active: swaps[b.Device]}
 		}
+		if b.IDUsage == "crypto" {
+			b.Encrypted = &Encrypted{HintEncryptionType: strings.ToUpper(strings.TrimPrefix(b.IDType, "crypto_")) + b.IDVersion, CleartextDevice: "/"}
+			if b.IDType == "crypto_LUKS" {
+				b.Encrypted.HintEncryptionType = "luks" + b.IDVersion
+				b.Encrypted.MetadataSize = 16 << 20
+				if b.IDVersion == "1" {
+					b.Encrypted.MetadataSize = 2 << 20
+				}
+			}
+		}
+		if strings.HasPrefix(props["DM_UUID"], "CRYPT-") {
+			if slaves, _ := os.ReadDir(filepath.Join(dir, "slaves")); len(slaves) == 1 {
+				b.CryptoBackingDevice = slaves[0].Name()
+			}
+		}
 		if backing := readFile(filepath.Join(dir, "loop/backing_file")); backing != "" {
 			b.Loop = &Loop{BackingFile: backing, Autoclear: readFile(filepath.Join(dir, "loop/autoclear")) == "1"}
 		}
@@ -374,6 +401,19 @@ func Scan(src Sources, detected map[string]uint64) *Model {
 		b.Partition = p
 	}
 	for _, b := range m.Blocks {
+		if b.CryptoBackingDevice == "/" {
+			continue
+		}
+		backing := m.Blocks[b.CryptoBackingDevice]
+		b.CryptoBackingDevice = "/"
+		if backing != nil {
+			b.CryptoBackingDevice = BlockPath(backing.Name)
+			if backing.Encrypted != nil {
+				backing.Encrypted.CleartextDevice = BlockPath(b.Name)
+			}
+		}
+	}
+	for _, b := range m.Blocks {
 		if b.disk != b.Name {
 			continue
 		}
@@ -401,6 +441,16 @@ func Scan(src Sources, detected map[string]uint64) *Model {
 			auto = v
 		}
 		b.HintAuto = auto
+	}
+	for _, b := range m.Blocks {
+		if b.CryptoBackingDevice == "/" {
+			continue
+		}
+		for _, backing := range m.Blocks {
+			if BlockPath(backing.Name) == b.CryptoBackingDevice {
+				b.HintSystem, b.HintAuto = backing.HintSystem, backing.HintAuto
+			}
+		}
 	}
 	return m
 }

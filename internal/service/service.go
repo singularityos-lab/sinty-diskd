@@ -208,6 +208,10 @@ func blockIfaces(b *model.Block) map[string]map[string]interface{} {
 	if sw := b.Swapspace; sw != nil {
 		ifs[ifSwapspace] = map[string]interface{}{"Active": sw.Active}
 	}
+	if e := b.Encrypted; e != nil {
+		ifs[ifEncrypted] = map[string]interface{}{"HintEncryptionType": e.HintEncryptionType, "MetadataSize": e.MetadataSize,
+			"CleartextDevice": dbus.ObjectPath(e.CleartextDevice), "ChildConfiguration": []confItem{}}
+	}
 	if l := b.Loop; l != nil {
 		ifs[ifLoop] = map[string]interface{}{"BackingFile": ay(l.BackingFile), "Autoclear": l.Autoclear, "SetupByUID": l.SetupByUID}
 	}
@@ -263,6 +267,9 @@ func (s *Service) Refresh() {
 		}
 		if b.Swapspace != nil {
 			mm[ifSwapspace] = &swapObject{s, b.Name}
+		}
+		if b.Encrypted != nil {
+			mm[ifEncrypted] = &encryptedObject{s, b.Name}
 		}
 		if namespaceName.MatchString(b.Name) {
 			if o := s.objects[path]; o != nil && o.ifaces[ifNVMeNamespace] != nil {
