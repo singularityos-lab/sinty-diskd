@@ -719,3 +719,34 @@ func (b *blockObject) OpenForRestore(sender dbus.Sender, options map[string]dbus
 func (b *blockObject) OpenForBenchmark(sender dbus.Sender, options map[string]dbus.Variant) (dbus.UnixFD, *dbus.Error) {
 	return b.open(sender, os.O_RDONLY|syscall.O_DIRECT)
 }
+
+func (f *filesystemObject) Resize(sender dbus.Sender, size uint64, options map[string]dbus.Variant) *dbus.Error {
+	s := f.s
+	s.mu.Lock()
+	blk := s.block(f.name)
+	if blk == nil || blk.Filesystem == nil {
+		s.mu.Unlock()
+		return failed(errors.New("not a filesystem"))
+	}
+	_, derr := s.mayModify(sender, blk)
+	fstype := blk.IDType
+	s.mu.Unlock()
+	if derr != nil {
+		return derr
+	}
+	dev := "/dev/" + f.name
+	switch fstype {
+	case "ext2", "ext3", "ext4":
+		args := []string{dev}
+		if size > 0 {
+			args = append(args, strconv.FormatUint(size/1024, 10)+"K")
+		}
+		if err := run("resize2fs", args...); err != nil {
+			return failed(err)
+		}
+	default:
+		return dbus.NewError("org.freedesktop.UDisks2.Error.NotSupported", []interface{}{"cannot resize " + fstype})
+	}
+	s.settle(f.name)
+	return nil
+}
