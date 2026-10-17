@@ -30,13 +30,20 @@ find the same object manager, objects and properties on the system bus.
   mount points and the drive identity, media and connection. On a real
   machine the published objects and values match UDisks2 2.11 one for one.
 - **Actions**: `Filesystem.Mount` under `/run/media/<user>` with the safe
-  default options UDisks2 uses, `Filesystem.Unmount`, `Drive.Eject`,
-  `Drive.PowerOff` for USB drives and `Block.Rescan`. Users may act on
-  removable media; system devices are reserved to root.
+  default options UDisks2 uses, `Unmount`, `SetLabel`, `Check`, `Repair` and
+  `TakeOwnership`; `Block.Format` (filesystems, empty, `dos` and `gpt`
+  tables, with label, zeroing and partition type update), `Rescan`,
+  `OpenForBackup`, `OpenForRestore` and `OpenForBenchmark`;
+  `PartitionTable.CreatePartition` and `CreatePartitionAndFormat`;
+  `Partition.Delete`, `Resize`, `SetType`, `SetName` and `SetFlags`;
+  `Swapspace.Start` and `Stop`; `Drive.Eject` and `Drive.PowerOff` for USB
+  drives. The work is done by the standard tools (sfdisk, wipefs, the mkfs
+  and fsck of each filesystem), called directly without a shell. Users may
+  act on removable media; system devices are reserved to root.
 
-Not implemented yet: formatting, partitioning, the SMART and NVMe
-interfaces, encryption and loop device setup. Their methods are not
-published, so clients see them as unavailable rather than failing.
+Not implemented yet: the SMART and NVMe interfaces, encryption, loop device
+setup and editing fstab. Their methods are not published, so clients see them
+as unavailable rather than failing.
 
 ## Usage
 

@@ -246,6 +246,15 @@ func (s *Service) Refresh() {
 		if b.Filesystem != nil {
 			mm[ifFilesystem] = &filesystemObject{s, b.Name}
 		}
+		if b.Partition != nil {
+			mm[ifPartition] = &partitionObject{blockObject{s, b.Name}}
+		}
+		if b.PartitionTable != nil {
+			mm[ifTable] = &tableObject{blockObject{s, b.Name}}
+		}
+		if b.Swapspace != nil {
+			mm[ifSwapspace] = &swapObject{s, b.Name}
+		}
 		methods[path] = mm
 	}
 	for path, o := range s.objects {
