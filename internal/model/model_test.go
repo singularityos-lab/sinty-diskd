@@ -37,3 +37,31 @@ func TestMountsByNumberAndSource(t *testing.T) {
 		t.Errorf("esp mounts %v", got)
 	}
 }
+
+func TestHideSystemLoops(t *testing.T) {
+	m := &Model{Blocks: map[string]*Block{
+		"loop0":     {Name: "loop0", disk: "loop0", Loop: &Loop{BackingFile: "/sysdata/boot/rootfs/rootfs-active.erofs"}},
+		"loop1":     {Name: "loop1", disk: "loop1", Loop: &Loop{BackingFile: "/sysdata/boot/rootfs/rootfs-active.hash"}},
+		"dm-0":      {Name: "dm-0", disk: "dm-0", slaves: []string{"loop0", "loop1"}},
+		"loop2":     {Name: "loop2", disk: "loop2", Loop: &Loop{BackingFile: "/home/user/disk.iso"}},
+		"loop2p1":   {Name: "loop2p1", disk: "loop2"},
+		"loop3":     {Name: "loop3", disk: "loop3", Loop: &Loop{BackingFile: "/var/lib/sxi/app.img"}},
+		"loop3p1":   {Name: "loop3p1", disk: "loop3"},
+		"dm-1":      {Name: "dm-1", disk: "dm-1", slaves: []string{"nvme0n1p3"}},
+		"nvme0n1":   {Name: "nvme0n1", disk: "nvme0n1"},
+		"nvme0n1p3": {Name: "nvme0n1p3", disk: "nvme0n1"},
+		"sda1":      {Name: "sda1", disk: "sda"},
+	}}
+	m.HideSystemLoops(func(name string) uint32 {
+		if name == "loop2" {
+			return 1000
+		}
+		return 0
+	})
+	want := map[string]bool{"loop0": true, "loop1": true, "dm-0": true, "loop3": true, "loop3p1": true}
+	for name, b := range m.Blocks {
+		if b.HintIgnore != want[name] {
+			t.Errorf("%s HintIgnore = %v, want %v", name, b.HintIgnore, want[name])
+		}
+	}
+}

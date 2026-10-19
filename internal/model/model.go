@@ -78,6 +78,7 @@ type Block struct {
 
 	major, minor int
 	disk         string
+	slaves       []string
 	props        map[string]string
 }
 
@@ -357,9 +358,13 @@ func Scan(src Sources, detected map[string]uint64) *Model {
 				}
 			}
 		}
-		if strings.HasPrefix(props["DM_UUID"], "CRYPT-") {
-			if slaves, _ := os.ReadDir(filepath.Join(dir, "slaves")); len(slaves) == 1 {
-				b.CryptoBackingDevice = slaves[0].Name()
+		if strings.HasPrefix(name, "dm-") {
+			entries, _ := os.ReadDir(filepath.Join(dir, "slaves"))
+			for _, e := range entries {
+				b.slaves = append(b.slaves, e.Name())
+			}
+			if strings.HasPrefix(props["DM_UUID"], "CRYPT-") && len(b.slaves) == 1 {
+				b.CryptoBackingDevice = b.slaves[0]
 			}
 		}
 		if backing := readFile(filepath.Join(dir, "loop/backing_file")); backing != "" {
@@ -709,4 +714,35 @@ func contains(list []string, v string) bool {
 		}
 	}
 	return false
+}
+
+// HideSystemLoops marks loop devices that no user set up as ignored, so file
+// managers do not offer system images, their verity hash trees, the device
+// mapper targets stacked on them or their partitions as removable volumes.
+func (m *Model) HideSystemLoops(owner func(name string) uint32) {
+	hidden := map[string]bool{}
+	for _, b := range m.Blocks {
+		if b.Loop != nil && owner(b.Name) == 0 {
+			hidden[b.Name] = true
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for _, b := range m.Blocks {
+			if hidden[b.Name] {
+				continue
+			}
+			stacked := len(b.slaves) > 0
+			for _, sl := range b.slaves {
+				stacked = stacked && hidden[sl]
+			}
+			if stacked || (b.disk != b.Name && hidden[b.disk]) {
+				hidden[b.Name] = true
+				changed = true
+			}
+		}
+	}
+	for name := range hidden {
+		m.Blocks[name].HintIgnore = true
+	}
 }

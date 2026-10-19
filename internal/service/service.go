@@ -239,6 +239,7 @@ func (s *Service) Refresh() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	m := model.Scan(s.src, s.detected)
+	m.HideSystemLoops(func(name string) uint32 { return s.loopOwner[name] })
 	s.model = m
 	want := map[dbus.ObjectPath]map[string]map[string]interface{}{}
 	methods := map[dbus.ObjectPath]map[string]interface{}{}
