@@ -82,6 +82,7 @@ func mountEvents(changed func()) error {
 
 func main() {
 	udevData := flag.String("udev-data", "/run/udev/data", "udev database directory")
+	healthStore := flag.String("health-store", "/var/lib/sinty-diskd/health.json", "drive health history")
 	flag.Parse()
 	log.SetFlags(0)
 	log.SetPrefix("sinty-diskd: ")
@@ -100,6 +101,9 @@ func main() {
 			log.Printf("system bus not ready: %v", err)
 		}
 		time.Sleep(time.Second)
+	}
+	if err := s.StartHealth(*healthStore, "/dev/kmsg"); err != nil {
+		log.Printf("drive health: %v", err)
 	}
 	s.Refresh()
 	changes := make(chan struct{}, 1)

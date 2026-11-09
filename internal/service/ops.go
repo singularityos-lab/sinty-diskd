@@ -175,6 +175,9 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 	if derr != nil {
 		return derr
 	}
+	if derr := s.checkCapacity(b.name, options); derr != nil {
+		return derr
+	}
 	dev := "/dev/" + b.name
 	if err := run("wipefs", "-a", "-q", dev); err != nil {
 		return failed(err)

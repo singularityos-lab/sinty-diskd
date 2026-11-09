@@ -54,6 +54,7 @@ type Service struct {
 	nvme      map[string]*nvmeState
 	loopOwner map[string]uint32
 	ata       map[string]*ataState
+	health    *healthMonitor
 }
 
 // New connects to the system bus and publishes the manager.
@@ -241,6 +242,9 @@ func (s *Service) Refresh() {
 	m := model.Scan(s.src, s.detected)
 	m.HideSystemLoops(func(name string) uint32 { return s.loopOwner[name] })
 	s.model = m
+	if s.health != nil {
+		s.health.track(m, s.src.Sys)
+	}
 	want := map[dbus.ObjectPath]map[string]map[string]interface{}{}
 	methods := map[dbus.ObjectPath]map[string]interface{}{}
 	for _, d := range m.Drives {
