@@ -1,5 +1,7 @@
 package health
 
+import "strings"
+
 const (
 	Good    = "good"
 	Watch   = "watch"
@@ -56,7 +58,7 @@ func Assess(r Record, now int64) (string, []string) {
 	if e, ok := last[ReadOnly]; ok && now-e.Time <= 30*day {
 		raise(Failing, ReadOnly)
 	}
-	if _, ok := last[CheckFailed]; ok && !after(last, CheckPassed, CheckFailed) {
+	if failedCheck(r.Events) {
 		raise(Failing, CheckFailed)
 	}
 	if _, ok := last[SmartWorn]; ok {
@@ -84,6 +86,29 @@ func Assess(r Record, now int64) (string, []string) {
 		raise(Watch, SlowWrites)
 	}
 	return state, reasons
+}
+
+func CheckName(detail string) string {
+	name, _, _ := strings.Cut(strings.TrimSpace(detail), " ")
+	return name
+}
+
+func failedCheck(events []Event) bool {
+	state := map[string]bool{}
+	for _, e := range events {
+		switch e.Kind {
+		case CheckFailed:
+			state[CheckName(e.Detail)] = true
+		case CheckPassed:
+			state[CheckName(e.Detail)] = false
+		}
+	}
+	for _, failing := range state {
+		if failing {
+			return true
+		}
+	}
+	return false
 }
 
 func after(last map[string]Event, newer, older string) bool {

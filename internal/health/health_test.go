@@ -181,9 +181,13 @@ func TestAssessOnlyRepeatedOrSerious(t *testing.T) {
 	if s, _ := Assess(r, now); s != Good {
 		t.Fatalf("verified after fake gave %s", s)
 	}
-	r = Record{Events: []Event{{Kind: CheckFailed, Time: now - 10}, {Kind: CheckPassed, Time: now}}}
+	r = Record{Events: []Event{{Kind: CheckFailed, Time: now - 10, Detail: "startup-key copy failed"}, {Kind: CheckPassed, Time: now, Detail: "startup-key"}}}
 	if s, _ := Assess(r, now); s != Good {
 		t.Fatalf("passed check after failure gave %s", s)
+	}
+	r = Record{Events: []Event{{Kind: CheckFailed, Time: now - 10, Detail: "key-backup damaged"}, {Kind: CheckPassed, Time: now, Detail: "backup"}}}
+	if s, _ := Assess(r, now); s != Failing {
+		t.Fatalf("a passing backup hid a damaged Key backup: %s", s)
 	}
 	r = Record{Events: []Event{{Kind: ReadOnly, Time: now - 40*day}}}
 	if s, _ := Assess(r, now); s != Good {

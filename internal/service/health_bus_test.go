@@ -155,9 +155,12 @@ func TestHealthFollowsKernelOverTheBus(t *testing.T) {
 		t.Fatalf("health by partition: %+v %v", one, err)
 	}
 	if os.Getuid() != 0 {
-		err := obj.Call(ifHealth+".Report", 0, "/dev/sdb", "backup", true, "").Err
+		err := obj.Call(ifHealth+".Report", 0, "/dev/sdb", "startup-key", true, "").Err
 		if e, ok := err.(dbus.Error); !ok || e.Name != "org.freedesktop.UDisks2.Error.NotAuthorized" {
-			t.Fatalf("report from a user: %v", err)
+			t.Fatalf("startup key report from a user: %v", err)
+		}
+		if err := obj.Call(ifHealth+".Report", 0, "/dev/sdb1", "backup", true, "").Err; err != nil {
+			t.Fatalf("backup report from a user: %v", err)
 		}
 	}
 
@@ -169,7 +172,7 @@ func TestHealthFollowsKernelOverTheBus(t *testing.T) {
 	if err := json.Unmarshal(data, &saved); err != nil || len(saved) != 1 {
 		t.Fatalf("history %s", data)
 	}
-	if saved[0]["serial"] != "4C530001" || saved[0]["alerted"] != "failing" || len(saved[0]["events"].([]interface{})) != 6 {
+	if saved[0]["serial"] != "4C530001" || saved[0]["alerted"] != "failing" || len(saved[0]["events"].([]interface{})) != 7 {
 		t.Fatalf("history %s", data)
 	}
 	info, _ := os.Stat(store)
