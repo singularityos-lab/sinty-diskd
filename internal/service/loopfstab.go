@@ -11,6 +11,7 @@ import (
 	"unsafe"
 
 	"github.com/godbus/dbus/v5"
+	core "github.com/singularityos-lab/libsingularity/src/system/core/go/sintysystem"
 )
 
 const (
@@ -96,7 +97,7 @@ func (m *managerObject) LoopSetup(sender dbus.Sender, fd dbus.UnixFD, options ma
 	s.mu.Lock()
 	s.loopOwner[name] = uid
 	s.mu.Unlock()
-	run("udevadm", "settle", "--timeout=10")
+	core.SettleBlock("", 10000)
 	s.Refresh()
 	return dbus.ObjectPath("/org/freedesktop/UDisks2/block_devices/" + name), nil
 }

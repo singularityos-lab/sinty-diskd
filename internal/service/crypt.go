@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/godbus/dbus/v5"
+	core "github.com/singularityos-lab/libsingularity/src/system/core/go/sintysystem"
 
 	"github.com/singularityos-lab/sinty-diskd/internal/model"
 )
@@ -101,7 +102,7 @@ func (e *encryptedObject) Unlock(sender dbus.Sender, passphrase string, options 
 	if err := cryptsetup([]string{passphrase}, args...); err != nil {
 		return "", cryptFailed(err)
 	}
-	run("udevadm", "settle", "--timeout=10")
+	core.SettleBlock("", 10000)
 	for i := 0; i < 20; i++ {
 		e.s.Refresh()
 		e.s.mu.Lock()
@@ -144,7 +145,7 @@ func (e *encryptedObject) Lock(sender dbus.Sender, options map[string]dbus.Varia
 	if err := cryptsetup(nil, "close", clear.MapperName()); err != nil {
 		return failed(err)
 	}
-	run("udevadm", "settle", "--timeout=10")
+	core.SettleBlock("", 10000)
 	e.s.Refresh()
 	return nil
 }

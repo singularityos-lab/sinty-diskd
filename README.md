@@ -37,9 +37,10 @@ find the same object manager, objects and properties on the system bus.
   `PartitionTable.CreatePartition` and `CreatePartitionAndFormat`;
   `Partition.Delete`, `Resize`, `SetType`, `SetName` and `SetFlags`;
   `Swapspace.Start` and `Stop`; `Drive.Eject` and `Drive.PowerOff` for USB
-  drives. The work is done by the standard tools (sfdisk, wipefs, the mkfs
-  and fsck of each filesystem), called directly without a shell. Users may
-  act on removable media; system devices are reserved to root.
+  drives. Partition tables, signature wiping, swap, eject and the kernel and
+  device-node updates go through libsinty-system-core; the mkfs and fsck of
+  each filesystem are called directly without a shell. Users may act on
+  removable media; system devices are reserved to root.
 
 The NVMe controller and namespace interfaces publish the identity, SMART
 health and self-test state, with `SmartUpdate`, `SmartGetAttributes`,
@@ -72,9 +73,10 @@ the `GetManagedObjects` reply of UDisks2 in `managed-s.json`.
 ## Build
 
     make build            # ./sinty-diskd
-    make static           # stripped static binary for the image
+    make release          # stripped binary for the image
     make test
     go build ./...        # plain build
 
-Requires Go >= 1.25 and Linux. The non-stdlib dependency is
-`github.com/godbus/dbus/v5`.
+Requires Go >= 1.25, Linux, cgo and libsinty-system-core (found with
+pkg-config). The Go dependencies are `github.com/godbus/dbus/v5` and the
+libsinty-system-core binding.

@@ -1,15 +1,15 @@
 BIN := sinty-diskd
 PREFIX ?= /usr
 
-.PHONY: all build static test vet install clean
+.PHONY: all build release test vet install clean
 
 all: build
 
 build:
 	go build -o $(BIN) ./cmd/sinty-diskd
 
-static:
-	CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o $(BIN) ./cmd/sinty-diskd
+release:
+	go build -trimpath -ldflags "-s -w" -o $(BIN) ./cmd/sinty-diskd
 
 test:
 	go test ./...
@@ -17,7 +17,7 @@ test:
 vet:
 	go vet ./...
 
-install: static
+install: release
 	install -Dm755 $(BIN) $(DESTDIR)$(PREFIX)/libexec/$(BIN)
 	install -Dm644 packaging/sinty-diskd.service $(DESTDIR)$(PREFIX)/lib/systemd/system/sinty-diskd.service
 	install -Dm644 packaging/sinty-diskd.conf $(DESTDIR)$(PREFIX)/share/dbus-1/system.d/sinty-diskd.conf

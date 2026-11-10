@@ -16,6 +16,8 @@ import (
 
 	"github.com/godbus/dbus/v5"
 
+	core "github.com/singularityos-lab/libsingularity/src/system/core/go/sintysystem"
+
 	"github.com/singularityos-lab/sinty-diskd/internal/model"
 )
 
@@ -179,7 +181,7 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 		return derr
 	}
 	dev := "/dev/" + b.name
-	if err := run("wipefs", "-a", "-q", dev); err != nil {
+	if err := core.WipeSignatures(dev); err != nil {
 		return failed(err)
 	}
 	if optString(options, "erase") == "zero" {
@@ -190,7 +192,11 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 	switch fstype {
 	case "empty":
 	case "dos", "gpt":
-		if err := runInput("label: "+fstype+"\n", "sfdisk", "--quiet", "--wipe", "always", dev); err != nil {
+		kind := core.TableGPT
+		if fstype == "dos" {
+			kind = core.TableDOS
+		}
+		if err := core.CreatePartitionTable(dev, kind); err != nil {
 			return failed(err)
 		}
 	default:
@@ -217,7 +223,8 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 				t = dosTypes[fstype]
 			}
 			if t != "" {
-				run("sfdisk", "--part-type", "/dev/"+table.Name, strconv.Itoa(int(part.Number)), t)
+				core.SetPartitionType("/dev/"+table.Name, part.Number, t)
+				core.SyncPartitions("/dev/" + table.Name)
 			}
 		}
 		if optBool(options, "take-ownership") && uid != 0 {
@@ -226,8 +233,7 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 			}
 		}
 	}
-	run("udevadm", "trigger", "--action=change", "--sysname-match="+b.name)
-	run("udevadm", "settle", "--timeout=10")
+	announce(b.name)
 	s.Refresh()
 	return nil
 }
@@ -318,7 +324,7 @@ func (p *partitionObject) Delete(sender dbus.Sender, options map[string]dbus.Var
 	if err != nil {
 		return err
 	}
-	if e := run("sfdisk", "--quiet", "--delete", "/dev/"+table.Name, strconv.Itoa(int(blk.Partition.Number))); e != nil {
+	if e := core.RemovePartition("/dev/"+table.Name, blk.Partition.Number); e != nil {
 		return failed(e)
 	}
 	p.s.settle(table.Name)
@@ -333,7 +339,7 @@ func (p *partitionObject) SetType(sender dbus.Sender, typ string, options map[st
 	if !validPartType(typ) {
 		return failed(errors.New("invalid partition type"))
 	}
-	if e := run("sfdisk", "--quiet", "--part-type", "/dev/"+table.Name, strconv.Itoa(int(blk.Partition.Number)), typ); e != nil {
+	if e := core.SetPartitionType("/dev/"+table.Name, blk.Partition.Number, typ); e != nil {
 		return failed(e)
 	}
 	p.s.settle(table.Name)
@@ -359,7 +365,7 @@ func (p *partitionObject) SetName(sender dbus.Sender, name string, options map[s
 	if e := validLabel(name, 36); e != nil {
 		return failed(e)
 	}
-	if e := run("sfdisk", "--quiet", "--part-label", "/dev/"+table.Name, strconv.Itoa(int(blk.Partition.Number)), name); e != nil {
+	if e := core.SetPartitionName("/dev/"+table.Name, blk.Partition.Number, name); e != nil {
 		return failed(e)
 	}
 	p.s.settle(table.Name)
@@ -371,33 +377,10 @@ func (p *partitionObject) SetFlags(sender dbus.Sender, flags uint64, options map
 	if err != nil {
 		return err
 	}
-	num := strconv.Itoa(int(blk.Partition.Number))
-	var e error
-	if table.PartitionTable.Type == "gpt" {
-		var attrs []string
-		for bit := 0; bit < 64; bit++ {
-			if flags&(1<<bit) == 0 {
-				continue
-			}
-			switch bit {
-			case 0:
-				attrs = append(attrs, "RequiredPartition")
-			case 1:
-				attrs = append(attrs, "NoBlockIOProtocol")
-			case 2:
-				attrs = append(attrs, "LegacyBIOSBootable")
-			default:
-				attrs = append(attrs, strconv.Itoa(bit))
-			}
-		}
-		e = run("sfdisk", "--quiet", "--part-attrs", "/dev/"+table.Name, num, strings.Join(attrs, ","))
-	} else {
-		if flags&0x80 != 0 {
-			e = run("sfdisk", "--quiet", "--activate", "/dev/"+table.Name, num)
-		} else {
-			e = run("sfdisk", "--quiet", "--activate", "/dev/"+table.Name, "-")
-		}
+	if table.PartitionTable.Type != "gpt" {
+		flags &= 0x80
 	}
+	e := core.SetPartitionAttrs("/dev/"+table.Name, blk.Partition.Number, flags)
 	if e != nil {
 		return failed(e)
 	}
@@ -410,15 +393,9 @@ func (p *partitionObject) Resize(sender dbus.Sender, size uint64, options map[st
 	if err != nil {
 		return err
 	}
-	sectors := size / 512
-	if size == 0 {
-		if e := runInput(", +\n", "sfdisk", "--quiet", "--no-reread", "-N", strconv.Itoa(int(blk.Partition.Number)), "/dev/"+table.Name); e != nil {
-			return failed(e)
-		}
-	} else if e := runInput(fmt.Sprintf(", %d\n", sectors), "sfdisk", "--quiet", "--no-reread", "-N", strconv.Itoa(int(blk.Partition.Number)), "/dev/"+table.Name); e != nil {
+	if e := core.ResizePartition("/dev/"+table.Name, blk.Partition.Number, size); e != nil {
 		return failed(e)
 	}
-	run("partx", "-u", "/dev/"+table.Name)
 	p.s.settle(table.Name)
 	return nil
 }
@@ -453,20 +430,21 @@ func (t *tableObject) create(sender dbus.Sender, offset, size uint64, typ, name 
 	if start < mib {
 		start = mib
 	}
-	line := fmt.Sprintf("start=%d", start/512)
+	var length uint64
 	if size > 0 {
-		line += fmt.Sprintf(", size=%d", (size-(start-offset))/512)
+		if size <= start-offset {
+			return "", failed(errors.New("partition too small"))
+		}
+		length = size - (start - offset)
 	}
-	if typ != "" {
-		line += ", type=" + typ
-	}
+	label := ""
 	if name != "" && tableType == "gpt" {
 		if err := validLabel(name, 36); err != nil {
 			return "", failed(err)
 		}
-		line += ", name=\"" + strings.ReplaceAll(name, "\"", "") + "\""
+		label = name
 	}
-	if err := runInput(line+"\n", "sfdisk", "--quiet", "--append", "/dev/"+t.name); err != nil {
+	if _, err := core.AddPartition("/dev/"+t.name, start, length, typ, label); err != nil {
 		return "", failed(err)
 	}
 	s.settle(t.name)
@@ -507,9 +485,8 @@ func (t *tableObject) CreatePartitionAndFormat(sender dbus.Sender, offset, size 
 // settle waits for the kernel and sinty-devd to catch up with a change to the
 // partitions of disk, then republishes.
 func (s *Service) settle(disk string) {
-	run("partx", "-u", "/dev/"+disk)
-	run("udevadm", "trigger", "--action=change", "--sysname-match="+disk+"*")
-	run("udevadm", "settle", "--timeout=10")
+	core.SyncPartitions("/dev/" + disk)
+	announce(disk)
 	s.Refresh()
 }
 
@@ -689,11 +666,7 @@ func (w *swapObject) toggle(sender dbus.Sender, on bool) *dbus.Error {
 	}
 	dev := "/dev/" + w.name
 	var err error
-	if on {
-		err = run("swapon", dev)
-	} else {
-		err = run("swapoff", dev)
-	}
+	err = core.Swap(dev, on)
 	if err != nil {
 		return failed(err)
 	}

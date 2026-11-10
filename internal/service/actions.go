@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/godbus/dbus/v5"
+	core "github.com/singularityos-lab/libsingularity/src/system/core/go/sintysystem"
 
 	"github.com/singularityos-lab/sinty-diskd/internal/model"
 )
@@ -269,8 +270,8 @@ func (d *driveObject) Eject(sender dbus.Sender, options map[string]dbus.Variant)
 		return e
 	}
 	d.s.mu.Unlock()
-	if out, err := exec.Command("eject", "/dev/"+disk).CombinedOutput(); err != nil {
-		return failed(errors.New(strings.TrimSpace(string(out))))
+	if err := core.Eject("/dev/" + disk); err != nil {
+		return failed(err)
 	}
 	d.s.Refresh()
 	return nil
