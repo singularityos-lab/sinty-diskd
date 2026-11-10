@@ -19,7 +19,7 @@ var mkfsTools = map[string]string{
 	"ext2": "mkfs.ext2", "ext3": "mkfs.ext3", "xfs": "mkfs.xfs", "ntfs": "mkfs.ntfs", "f2fs": "mkfs.f2fs", "btrfs": "mkfs.btrfs",
 }
 
-var builtinFormats = map[string]bool{"ext4": true, "vfat": true, "exfat": true, "swap": true}
+var builtinFormats = map[string]bool{"ext4": true, "vfat": true, "exfat": true, "swap": true, "f2fs": true}
 
 func have(tool string) bool {
 	_, err := exec.LookPath(tool)

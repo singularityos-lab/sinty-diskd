@@ -112,6 +112,8 @@ func makeFilesystem(fstype, label, dev string) error {
 		return core.MakeExfat(dev, label)
 	case "swap":
 		return core.MakeSwap(dev, label)
+	case "f2fs":
+		return core.MakeF2fs(dev, label)
 	}
 	tool, args := mkfsArgs(fstype, label, dev)
 	return run(tool, args...)
@@ -514,7 +516,7 @@ func (f *filesystemObject) SetLabel(sender dbus.Sender, label string, options ma
 	dev := "/dev/" + f.name
 	var err error
 	switch fstype {
-	case "ext2", "ext3", "ext4", "exfat", "btrfs", "xfs", "swap":
+	case "ext2", "ext3", "ext4", "exfat", "btrfs", "xfs", "swap", "f2fs":
 		if err = validLabel(label, labelLimits[fstype]); err == nil {
 			err = core.SetFilesystemLabel(dev, label)
 		}

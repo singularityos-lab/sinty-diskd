@@ -12,5 +12,9 @@ github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-2026111011
 github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110110351-fee6b211319c/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
 github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110111228-b97afccc7b7f h1:DuQOnRL1hotB2e28hvGvn/4ueFeF4n5ljf1Dw4u08+4=
 github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110111228-b97afccc7b7f/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110113800-8455c6e5b526 h1:6+g6JTz4YdfyO/YjjP96/ymElmRGYHiCJHBo1yLh2To=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110113800-8455c6e5b526/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110113936-1ce8adc4a5a7 h1:8vYhYT9hFb31ooO0Ysf70k240ag7YgV6RIJms43qBl0=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110113936-1ce8adc4a5a7/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
 golang.org/x/sys v0.27.0 h1:wBqf8DvsY9Y/2P8gAfPDEYNuS30J4lPHJxXSb/nJZ+s=
 golang.org/x/sys v0.27.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
