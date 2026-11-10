@@ -557,11 +557,20 @@ func (f *filesystemObject) fsck(sender dbus.Sender, repair bool) (bool, *dbus.Er
 	var cmd *exec.Cmd
 	switch fstype {
 	case "ext2", "ext3", "ext4":
-		if repair {
-			cmd = exec.Command("e2fsck", "-f", "-y", dev)
-		} else {
-			cmd = exec.Command("e2fsck", "-f", "-n", dev)
+		r, err := core.CheckFilesystem(dev, repair)
+		if err != nil {
+			return false, failed(err)
 		}
+		if !repair {
+			return r.Errors == 0, nil
+		}
+		if r.Clean() {
+			return true, nil
+		}
+		if _, lerr := exec.LookPath("e2fsck"); lerr != nil {
+			return false, nil
+		}
+		cmd = exec.Command("e2fsck", "-f", "-y", dev)
 	case "vfat", "exfat":
 		r, err := core.CheckFilesystem(dev, repair)
 		if err != nil {
