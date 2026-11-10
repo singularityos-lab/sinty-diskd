@@ -421,6 +421,10 @@ func (m *managerObject) CanFormat(fstype string) (struct {
 		Available bool
 		Utility   string
 	}{}
+	if builtinFormats[fstype] {
+		r.Available = true
+		return r, nil
+	}
 	if !ok {
 		return r, nil
 	}

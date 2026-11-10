@@ -90,28 +90,40 @@ func validLabel(label string, max int) error {
 	return nil
 }
 
-// mkfsArgs builds the command that creates a filesystem of fstype with label.
-func mkfsArgs(fstype, label, dev string) (string, []string, error) {
-	limits := map[string]int{"ext2": 16, "ext3": 16, "ext4": 16, "vfat": 11, "exfat": 15, "ntfs": 128, "btrfs": 255, "xfs": 12, "f2fs": 512, "swap": 16}
-	max, ok := limits[fstype]
+var labelLimits = map[string]int{"ext2": 16, "ext3": 16, "ext4": 16, "vfat": 11, "exfat": 15, "ntfs": 128, "btrfs": 255, "xfs": 12, "f2fs": 512, "swap": 16}
+
+// checkFormat reports whether fstype can be created with label.
+func checkFormat(fstype, label string) error {
+	max, ok := labelLimits[fstype]
 	if !ok {
-		return "", nil, fmt.Errorf("formatting as %s is not supported", fstype)
+		return fmt.Errorf("formatting as %s is not supported", fstype)
 	}
-	if err := validLabel(label, max); err != nil {
-		return "", nil, err
+	return validLabel(label, max)
+}
+
+// makeFilesystem creates a filesystem of fstype with label on dev.
+func makeFilesystem(fstype, label, dev string) error {
+	switch fstype {
+	case "ext4":
+		return core.MakeExt4(dev, label)
+	case "vfat":
+		return core.MakeVfat(dev, strings.ToUpper(label), 0)
+	case "exfat":
+		return core.MakeExfat(dev, label)
+	case "swap":
+		return core.MakeSwap(dev, label)
 	}
+	tool, args := mkfsArgs(fstype, label, dev)
+	return run(tool, args...)
+}
+
+// mkfsArgs builds the command that creates the filesystems formatted by
+// their own tools.
+func mkfsArgs(fstype, label, dev string) (string, []string) {
 	var args []string
 	switch fstype {
-	case "ext2", "ext3", "ext4":
+	case "ext2", "ext3":
 		args = []string{"-F", "-q"}
-		if label != "" {
-			args = append(args, "-L", label)
-		}
-	case "vfat":
-		if label != "" {
-			args = append(args, "-n", strings.ToUpper(label))
-		}
-	case "exfat":
 		if label != "" {
 			args = append(args, "-L", label)
 		}
@@ -130,13 +142,8 @@ func mkfsArgs(fstype, label, dev string) (string, []string, error) {
 		if label != "" {
 			args = append(args, "-l", label)
 		}
-	case "swap":
-		if label != "" {
-			args = append(args, "-L", label)
-		}
-		return "mkswap", append(args, dev), nil
 	}
-	return mkfsTools[fstype], append(args, dev), nil
+	return mkfsTools[fstype], append(args, dev)
 }
 
 // gptTypes is the partition type a fresh filesystem gets when the caller asks
@@ -210,11 +217,11 @@ func (b *blockObject) Format(sender dbus.Sender, fstype string, options map[stri
 			defer cryptsetup(nil, "close", name)
 			target = clear
 		}
-		tool, args, err := mkfsArgs(fstype, optString(options, "label"), target)
-		if err != nil {
+		label := optString(options, "label")
+		if err := checkFormat(fstype, label); err != nil {
 			return dbus.NewError("org.freedesktop.UDisks2.Error.NotSupported", []interface{}{err.Error()})
 		}
-		if err := run(tool, args...); err != nil {
+		if err := makeFilesystem(fstype, label, target); err != nil {
 			return failed(err)
 		}
 		if optBool(options, "update-partition-type") && part != nil && table != nil && table.PartitionTable != nil {
@@ -507,25 +514,13 @@ func (f *filesystemObject) SetLabel(sender dbus.Sender, label string, options ma
 	dev := "/dev/" + f.name
 	var err error
 	switch fstype {
-	case "ext2", "ext3", "ext4":
-		if err = validLabel(label, 16); err == nil {
-			err = run("e2label", dev, label)
+	case "ext2", "ext3", "ext4", "exfat", "btrfs", "xfs", "swap":
+		if err = validLabel(label, labelLimits[fstype]); err == nil {
+			err = core.SetFilesystemLabel(dev, label)
 		}
 	case "vfat":
 		if err = validLabel(label, 11); err == nil {
-			err = run("fatlabel", dev, strings.ToUpper(label))
-		}
-	case "exfat":
-		if err = validLabel(label, 15); err == nil {
-			err = run("exfatlabel", dev, label)
-		}
-	case "btrfs":
-		if err = validLabel(label, 255); err == nil {
-			err = run("btrfs", "filesystem", "label", dev, label)
-		}
-	case "xfs":
-		if err = validLabel(label, 12); err == nil {
-			err = run("xfs_admin", "-L", label, dev)
+			err = core.SetFilesystemLabel(dev, strings.ToUpper(label))
 		}
 	case "ntfs":
 		if err = validLabel(label, 128); err == nil {

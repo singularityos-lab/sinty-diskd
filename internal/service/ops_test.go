@@ -7,29 +7,50 @@ import (
 	"unsafe"
 
 	"github.com/godbus/dbus/v5"
+	core "github.com/singularityos-lab/libsingularity/src/system/core/go/sintysystem"
 )
 
 func TestMkfsArgs(t *testing.T) {
 	cases := []struct {
 		fstype, label, tool, args string
 	}{
-		{"ext4", "Data", "mkfs.ext4", "-F -q -L Data /dev/sdb1"},
-		{"vfat", "stick", "mkfs.vfat", "-n STICK /dev/sdb1"},
-		{"exfat", "", "mkfs.exfat", "/dev/sdb1"},
-		{"swap", "sw", "mkswap", "-L sw /dev/sdb1"},
+		{"ext3", "Data", "mkfs.ext3", "-F -q -L Data /dev/sdb1"},
+		{"ntfs", "", "mkfs.ntfs", "-f -F /dev/sdb1"},
 		{"btrfs", "b", "mkfs.btrfs", "-f -L b /dev/sdb1"},
+		{"f2fs", "f", "mkfs.f2fs", "-f -l f /dev/sdb1"},
 	}
 	for _, c := range cases {
-		tool, args, err := mkfsArgs(c.fstype, c.label, "/dev/sdb1")
-		if err != nil || tool != c.tool || strings.Join(args, " ") != c.args {
-			t.Errorf("%s: %s %v %v", c.fstype, tool, args, err)
+		tool, args := mkfsArgs(c.fstype, c.label, "/dev/sdb1")
+		if tool != c.tool || strings.Join(args, " ") != c.args {
+			t.Errorf("%s: %s %v", c.fstype, tool, args)
 		}
 	}
-	if _, _, err := mkfsArgs("vfat", "TWELVE_CHARS", "/dev/x"); err == nil {
+	if err := checkFormat("vfat", "TWELVE_CHARS"); err == nil {
 		t.Error("a vfat label longer than 11 bytes was accepted")
 	}
-	if _, _, err := mkfsArgs("reiserfs", "", "/dev/x"); err == nil {
+	if err := checkFormat("reiserfs", ""); err == nil {
 		t.Error("an unsupported filesystem was accepted")
+	}
+}
+
+func TestMakeFilesystemOnImage(t *testing.T) {
+	path := t.TempDir() + "/fs.img"
+	if err := os.WriteFile(path, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Truncate(path, 64<<20); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct{ fstype, label, want string }{
+		{"ext4", "data", "data"}, {"vfat", "stick", "STICK"}, {"exfat", "Média", "Média"}, {"swap", "sw", "sw"},
+	} {
+		if err := makeFilesystem(c.fstype, c.label, path); err != nil {
+			t.Fatalf("%s: %v", c.fstype, err)
+		}
+		info, err := core.ProbeFilesystem(path)
+		if err != nil || info.Type != c.fstype || info.Label != c.want {
+			t.Fatalf("%s: %+v %v", c.fstype, info, err)
+		}
 	}
 }
 
