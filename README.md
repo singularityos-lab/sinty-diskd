@@ -47,7 +47,9 @@ health and self-test state, with `SmartUpdate`, `SmartGetAttributes`,
 `SmartSelftestStart` and `SmartSelftestAbort`.
 
 LUKS volumes can be unlocked, locked, given a new passphrase and created with
-`Block.Format`; passphrases reach cryptsetup only on pipes.
+`Block.Format`. LUKS2 volumes are handled in process by the libsingularity
+system core; LUKS1 and other layouts it does not read go through cryptsetup
+when it is installed, with passphrases only on pipes.
 
 Loop devices can be set up from a file descriptor, deleted and set to clear
 themselves, and the fstab items of a device added, removed and updated.

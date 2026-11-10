@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/godbus/dbus/v5"
@@ -16,7 +17,7 @@ import (
 const ifEncrypted = "org.freedesktop.UDisks2.Encrypted"
 
 // cryptsetup runs cryptsetup with each secret on its own pipe, passed as
-// /dev/fd/3, /dev/fd/4 and so on, so no secret reaches a command line or a
+// /proc/self/fd/3, /proc/self/fd/4 and so on, so no secret reaches a command line or a
 // file.
 func cryptsetup(secrets []string, args ...string) error {
 	cmd := exec.Command("cryptsetup", args...)
@@ -49,6 +50,20 @@ func cryptsetup(secrets []string, args ...string) error {
 }
 
 var errWrongPassphrase = errors.New("the passphrase is not correct")
+
+func viaCore(op func() error, fallback func() error) error {
+	err := op()
+	if errors.Is(err, core.ErrWrongPassphrase) {
+		return errWrongPassphrase
+	}
+	if !errors.Is(err, syscall.EOPNOTSUPP) {
+		return err
+	}
+	if _, lookErr := exec.LookPath("cryptsetup"); lookErr != nil {
+		return errors.New("this encryption layout is not supported")
+	}
+	return fallback()
+}
 
 func cryptFailed(err error) *dbus.Error {
 	if err == errWrongPassphrase {
@@ -95,11 +110,17 @@ func (e *encryptedObject) Unlock(sender dbus.Sender, passphrase string, options 
 		return "", dbus.NewError("org.freedesktop.UDisks2.Error.AlreadyUnlocked", []interface{}{"already unlocked"})
 	}
 	name := mapperFor(b)
-	args := []string{"open", "--type", "luks", "--key-file=/dev/fd/3", "/dev/" + b.Name, name}
-	if optBool(options, "read-only") || b.ReadOnly {
-		args = append(args[:1], append([]string{"--readonly"}, args[1:]...)...)
-	}
-	if err := cryptsetup([]string{passphrase}, args...); err != nil {
+	readOnly := optBool(options, "read-only") || b.ReadOnly
+	err := viaCore(func() error {
+		return core.LuksOpen("/dev/"+b.Name, passphrase, name, readOnly)
+	}, func() error {
+		args := []string{"open", "--type", "luks", "--key-file=/proc/self/fd/3", "/dev/" + b.Name, name}
+		if readOnly {
+			args = append(args[:1], append([]string{"--readonly"}, args[1:]...)...)
+		}
+		return cryptsetup([]string{passphrase}, args...)
+	})
+	if err != nil {
 		return "", cryptFailed(err)
 	}
 	core.SettleBlock("", 10000)
@@ -142,7 +163,7 @@ func (e *encryptedObject) Lock(sender dbus.Sender, options map[string]dbus.Varia
 	if derr != nil {
 		return derr
 	}
-	if err := cryptsetup(nil, "close", clear.MapperName()); err != nil {
+	if err := core.LuksClose(clear.MapperName()); err != nil {
 		return failed(err)
 	}
 	core.SettleBlock("", 10000)
@@ -158,7 +179,12 @@ func (e *encryptedObject) ChangePassphrase(sender dbus.Sender, oldPass, newPass 
 	if newPass == "" {
 		return failed(errors.New("the new passphrase is empty"))
 	}
-	if err := cryptsetup([]string{oldPass, newPass}, "luksChangeKey", "--key-file=/dev/fd/3", "/dev/"+b.Name, "/dev/fd/4"); err != nil {
+	err := viaCore(func() error {
+		return core.LuksChangePassphrase("/dev/"+b.Name, oldPass, newPass)
+	}, func() error {
+		return cryptsetup([]string{oldPass, newPass}, "luksChangeKey", "--key-file=/proc/self/fd/3", "/dev/"+b.Name, "/proc/self/fd/4")
+	})
+	if err != nil {
 		return cryptFailed(err)
 	}
 	return nil
@@ -170,11 +196,11 @@ func formatEncrypted(dev, uuidHint, passphrase string) (string, string, error) {
 	if passphrase == "" {
 		return "", "", errors.New("the passphrase is empty")
 	}
-	if err := cryptsetup([]string{passphrase}, "luksFormat", "--batch-mode", "--type", "luks2", "--key-file=/dev/fd/3", dev); err != nil {
+	if err := core.LuksFormat(dev, passphrase, ""); err != nil {
 		return "", "", err
 	}
 	name := "luks-format-" + uuidHint
-	if err := cryptsetup([]string{passphrase}, "open", "--type", "luks", "--key-file=/dev/fd/3", dev, name); err != nil {
+	if err := core.LuksOpen(dev, passphrase, name, false); err != nil {
 		return "", "", err
 	}
 	return "/dev/mapper/" + name, name, nil
