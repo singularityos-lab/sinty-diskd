@@ -8,5 +8,7 @@ github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-2026111009
 github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110092812-cb0e24ac7790/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
 github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110105226-cdbe8ccd6345 h1:PcyzHHAWuHPG78tJJ4jDdauBwZRI4aOFjA3DZK/7rEU=
 github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110105226-cdbe8ccd6345/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110110351-fee6b211319c h1:2+fjlb8hphNBqS6J6gcpcbpP2CnQuRju7e8zv7EMqO4=
+github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110110351-fee6b211319c/go.mod h1:dSqcOahINHGHr1y+V1mZykthPhfP8cqRCy+y1pwYcwY=
 golang.org/x/sys v0.27.0 h1:wBqf8DvsY9Y/2P8gAfPDEYNuS30J4lPHJxXSb/nJZ+s=
 golang.org/x/sys v0.27.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=

@@ -562,18 +562,15 @@ func (f *filesystemObject) fsck(sender dbus.Sender, repair bool) (bool, *dbus.Er
 		} else {
 			cmd = exec.Command("e2fsck", "-f", "-n", dev)
 		}
-	case "vfat":
-		if repair {
-			cmd = exec.Command("fsck.vfat", "-a", dev)
-		} else {
-			cmd = exec.Command("fsck.vfat", "-n", dev)
+	case "vfat", "exfat":
+		r, err := core.CheckFilesystem(dev, repair)
+		if err != nil {
+			return false, failed(err)
 		}
-	case "exfat":
 		if repair {
-			cmd = exec.Command("fsck.exfat", "-y", dev)
-		} else {
-			cmd = exec.Command("fsck.exfat", "-n", dev)
+			return r.Clean(), nil
 		}
+		return r.Errors == 0, nil
 	default:
 		return false, dbus.NewError("org.freedesktop.UDisks2.Error.NotSupported", []interface{}{"cannot check " + fstype})
 	}

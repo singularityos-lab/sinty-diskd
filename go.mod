@@ -4,7 +4,7 @@ go 1.25
 
 require (
 	github.com/godbus/dbus/v5 v5.2.2
-	github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110105226-cdbe8ccd6345
+	github.com/singularityos-lab/libsingularity/src/system/core/go v0.0.0-20261110110351-fee6b211319c
 )
 
 require golang.org/x/sys v0.27.0 // indirect
