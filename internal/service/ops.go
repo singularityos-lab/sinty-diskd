@@ -722,11 +722,14 @@ func (f *filesystemObject) Resize(sender dbus.Sender, size uint64, options map[s
 	dev := "/dev/" + f.name
 	switch fstype {
 	case "ext2", "ext3", "ext4":
-		args := []string{dev}
-		if size > 0 {
-			args = append(args, strconv.FormatUint(size/1024, 10)+"K")
+		_, err := core.GrowExt4(dev, size)
+		if errors.Is(err, syscall.EOPNOTSUPP) {
+			if _, lerr := exec.LookPath("resize2fs"); lerr != nil {
+				return dbus.NewError("org.freedesktop.UDisks2.Error.NotSupported", []interface{}{"shrinking ext4 needs resize2fs"})
+			}
+			err = run("resize2fs", dev, strconv.FormatUint(size/1024, 10)+"K")
 		}
-		if err := run("resize2fs", args...); err != nil {
+		if err != nil {
 			return failed(err)
 		}
 	default:
