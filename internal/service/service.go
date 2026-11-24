@@ -5,6 +5,7 @@ package service
 
 import (
 	"fmt"
+	"github.com/mirkobrombin/atomloops/sealedlog"
 	"log"
 	"os/user"
 	"sort"
@@ -45,6 +46,7 @@ type object struct {
 
 // Service is the running daemon.
 type Service struct {
+	Sealed    *sealedlog.Writer
 	src       model.Sources
 	conn      *dbus.Conn
 	mu        sync.Mutex

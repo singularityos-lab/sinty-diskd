@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"os"
@@ -312,6 +313,9 @@ func (h *healthMonitor) evaluate(key string) {
 	if reasons == nil {
 		reasons = []string{}
 	}
+	if alert {
+		h.s.Sealed.Log("disk-error", uint64(health.Rank(state)), uint64(diskHash(key)))
+	}
 	if changed || alert {
 		h.s.conn.Emit(healthPath, ifHealth+".Changed", key, state, reasons, alert)
 	}
@@ -497,4 +501,10 @@ func (o *healthObject) Report(sender dbus.Sender, device, check string, ok bool,
 	o.h.book.Note(key, kind, strings.TrimSpace(check+" "+detail))
 	o.h.evaluate(key)
 	return nil
+}
+
+func diskHash(key string) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(key))
+	return h.Sum32()
 }

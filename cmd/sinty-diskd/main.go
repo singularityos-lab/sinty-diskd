@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"github.com/mirkobrombin/atomloops/sealedlog"
 	"log"
 	"os"
 	"os/signal"
@@ -89,6 +90,8 @@ func main() {
 	if os.Getenv("DBUS_SYSTEM_BUS_ADDRESS") == "" {
 		os.Setenv("DBUS_SYSTEM_BUS_ADDRESS", "unix:path=/run/dbus/system_bus_socket")
 	}
+	sealed, _ := sealedlog.Open("diskd")
+	sealed.Log("start")
 	src := model.DefaultSources()
 	src.UdevData = *udevData
 	var s *service.Service
@@ -102,6 +105,7 @@ func main() {
 		}
 		time.Sleep(time.Second)
 	}
+	s.Sealed = sealed
 	if err := s.StartHealth(*healthStore, "/dev/kmsg"); err != nil {
 		log.Printf("drive health: %v", err)
 	}
@@ -123,6 +127,7 @@ func main() {
 		every = 5 * time.Minute
 	}
 	log.Print("serving org.freedesktop.UDisks2")
+	sealed.Log("ready")
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT)
 	mounts := time.NewTicker(every)
