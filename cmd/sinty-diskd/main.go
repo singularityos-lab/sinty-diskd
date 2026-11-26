@@ -4,7 +4,7 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"flag"
 	"github.com/mirkobrombin/atomloops/sealedlog"
 	"log"
@@ -13,35 +13,17 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/uevent"
 	"github.com/singularityos-lab/sinty-diskd/internal/model"
 	"github.com/singularityos-lab/sinty-diskd/internal/service"
 )
 
 func blockEvents(changed func()) error {
-	fd, err := syscall.Socket(syscall.AF_NETLINK, syscall.SOCK_DGRAM|syscall.SOCK_CLOEXEC, syscall.NETLINK_KOBJECT_UEVENT)
+	m, err := uevent.Open(uevent.Match{Subsystem: "block"})
 	if err != nil {
 		return err
 	}
-	if err := syscall.Bind(fd, &syscall.SockaddrNetlink{Family: syscall.AF_NETLINK, Groups: 2}); err != nil {
-		syscall.Close(fd)
-		return err
-	}
-	go func() {
-		defer syscall.Close(fd)
-		buf := make([]byte, 65536)
-		for {
-			n, _, err := syscall.Recvfrom(fd, buf, 0)
-			if err != nil {
-				if err == syscall.EINTR {
-					continue
-				}
-				return
-			}
-			if bytes.Contains(buf[:n], []byte("\x00SUBSYSTEM=block\x00")) {
-				changed()
-			}
-		}
-	}()
+	go m.Run(context.Background(), func(uevent.Event, error) { changed() })
 	return nil
 }
 
