@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"hash/fnv"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
+
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/busname"
 
 	"github.com/singularityos-lab/sinty-diskd/internal/ata"
 	"github.com/singularityos-lab/sinty-diskd/internal/health"
@@ -72,12 +75,8 @@ func (s *Service) StartHealth(storePath, kernelLog string) error {
 			{Name: "Progress", Args: []introspect.Arg{{Name: "device", Type: "s"}, {Name: "percent", Type: "u"}}},
 		}}}}
 	s.conn.Export(introspect.NewIntrospectable(node), healthPath, "org.freedesktop.DBus.Introspectable")
-	reply, err := s.conn.RequestName(healthName, dbus.NameFlagReplaceExisting|dbus.NameFlagDoNotQueue)
-	if err != nil {
+	if err := busname.Own(context.Background(), s.conn, healthName); err != nil {
 		return err
-	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		return fmt.Errorf("%s is owned by another process", healthName)
 	}
 	for _, key := range h.book.Keys() {
 		r, _ := h.book.Get(key)

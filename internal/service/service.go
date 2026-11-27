@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"github.com/mirkobrombin/atomloops/sealedlog"
 	"github.com/singularityos-lab/libsingularity/src/system/core/go/orgpolicy"
@@ -18,6 +19,8 @@ import (
 	"github.com/godbus/dbus/v5"
 	"github.com/godbus/dbus/v5/introspect"
 	"github.com/godbus/dbus/v5/prop"
+
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/busname"
 
 	"github.com/singularityos-lab/sinty-diskd/internal/model"
 )
@@ -87,14 +90,9 @@ func New(src model.Sources) (*Service, error) {
 		conn.Close()
 		return nil, err
 	}
-	reply, err := conn.RequestName(busName, dbus.NameFlagReplaceExisting|dbus.NameFlagDoNotQueue)
-	if err != nil {
+	if err := busname.Own(context.Background(), conn, busName); err != nil {
 		conn.Close()
 		return nil, err
-	}
-	if reply != dbus.RequestNameReplyPrimaryOwner {
-		conn.Close()
-		return nil, fmt.Errorf("%s is owned by another process", busName)
 	}
 	return s, nil
 }
