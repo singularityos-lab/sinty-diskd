@@ -463,6 +463,12 @@ func Scan(src Sources, detected map[string]uint64) *Model {
 	return m
 }
 
+// Removable reports whether the block sits on a drive the user can take away.
+func (m *Model) Removable(b *Block) bool {
+	d := m.driveOf(b)
+	return d != nil && d.Removable
+}
+
 func (m *Model) driveOf(b *Block) *Drive {
 	return m.Drives[strings.TrimPrefix(b.Drive, "/org/freedesktop/UDisks2/drives/")]
 }

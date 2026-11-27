@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/orgpolicy"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -108,6 +109,11 @@ func (f *filesystemObject) Mount(sender dbus.Sender, options map[string]dbus.Var
 		s.mu.Unlock()
 		return "", notAuthorized("mount a system device")
 	}
+	deny, forceReadOnly := storageRule(s.model != nil && s.model.Removable(b), s.storage)
+	if deny {
+		s.mu.Unlock()
+		return "", dbus.NewError("org.freedesktop.UDisks2.Error.NotAuthorized", []interface{}{"your organization does not allow removable storage on this device"})
+	}
 	fstype := b.IDType
 	if t := optString(options, "fstype"); t != "" {
 		fstype = t
@@ -155,7 +161,7 @@ func (f *filesystemObject) Mount(sender dbus.Sender, options map[string]dbus.Var
 	os.Chown(dir, int(uid), int(gid))
 	flags := uintptr(syscall.MS_NOSUID | syscall.MS_NODEV)
 	data := strings.Join(filterOut(opts, "nosuid", "nodev", "ro", "rw", "uhelper=udisks2"), ",")
-	if contains(opts, "ro") || b.ReadOnly {
+	if contains(opts, "ro") || b.ReadOnly || forceReadOnly {
 		flags |= syscall.MS_RDONLY
 	}
 	if contains(opts, "noexec") {
@@ -168,6 +174,13 @@ func (f *filesystemObject) Mount(sender dbus.Sender, options map[string]dbus.Var
 	}
 	s.Refresh()
 	return dir, nil
+}
+
+func storageRule(removable bool, rule orgpolicy.Storage) (deny, readOnly bool) {
+	if !removable {
+		return false, false
+	}
+	return rule == orgpolicy.StorageDeny, rule == orgpolicy.StorageReadOnly
 }
 
 func filterOut(list []string, drop ...string) []string {

@@ -6,6 +6,7 @@ package service
 import (
 	"fmt"
 	"github.com/mirkobrombin/atomloops/sealedlog"
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/orgpolicy"
 	"log"
 	"os/user"
 	"sort"
@@ -57,6 +58,14 @@ type Service struct {
 	loopOwner map[string]uint32
 	ata       map[string]*ataState
 	health    *healthMonitor
+	storage   orgpolicy.Storage
+}
+
+// SetPolicy applies the organization's removable storage rule to later mounts.
+func (s *Service) SetPolicy(p orgpolicy.Policy) {
+	s.mu.Lock()
+	s.storage = p.Storage()
+	s.mu.Unlock()
 }
 
 // New connects to the system bus and publishes the manager.

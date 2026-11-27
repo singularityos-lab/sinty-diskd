@@ -7,6 +7,7 @@ import (
 	"context"
 	"flag"
 	"github.com/mirkobrombin/atomloops/sealedlog"
+	"github.com/singularityos-lab/libsingularity/src/system/core/go/orgpolicy"
 	"log"
 	"os"
 	"os/signal"
@@ -91,6 +92,7 @@ func main() {
 	if err := s.StartHealth(*healthStore, "/dev/kmsg"); err != nil {
 		log.Printf("drive health: %v", err)
 	}
+	go orgpolicy.Watch(context.Background(), orgpolicy.File, s.SetPolicy)
 	s.Refresh()
 	changes := make(chan struct{}, 1)
 	notify := func() {
